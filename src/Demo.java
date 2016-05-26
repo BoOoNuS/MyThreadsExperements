@@ -1,5 +1,5 @@
 import MultithreadWordCounter.FileWatcher;
-import java.io.File;
+import java.io.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 
@@ -8,9 +8,8 @@ import java.util.concurrent.FutureTask;
  */
 public class Demo {
     public static void main(String[] args) {
-
         FileWatcher fileWatcher = new FileWatcher(new File("Files"));
-        fileWatcher.getFiles();
+        fileWatcher.tryThreads(fileWatcher.getFiles());
         FutureTask<Integer> future = new FutureTask<>(fileWatcher);
         Thread thread = new Thread(future);
         thread.start();
@@ -21,6 +20,10 @@ public class Demo {
         } catch (ExecutionException e) {
             e.printStackTrace();
         }
-
+        try {
+            fileWatcher.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

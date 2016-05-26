@@ -6,15 +6,20 @@ import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 /**
  * Created by Стас on 26.05.2016.
  */
-public class FileWatcher implements Callable<Integer> {
+public class FileWatcher implements Callable<Integer>, AutoCloseable {
 
     private File directory;
-    private List<Future<Integer>> futures = new ArrayList<>();
     private Integer wordCounter = 0;
+    private List<Future<Integer>> futures;
+    private static String REGEXP_FOR_MATH = ".+.txt";
+    private static Pattern pattern = Pattern.compile(REGEXP_FOR_MATH);
+    private static Matcher match;
     private static ExecutorService exec = Executors.newFixedThreadPool(2);
     /**
      * обробатываем по два потока
@@ -27,28 +32,42 @@ public class FileWatcher implements Callable<Integer> {
     }
 
     //вынес в отдельный метод что-бы не заходило в файлы..
-    public File[] getFiles(){
+    public List<Callable<Integer>> getFiles(){
+        List<Callable<Integer>> callables = new ArrayList<>();
         File[] files = directory.listFiles();
         for (File file : files) {
-            FutureTask<Integer> future = new FutureTask<>(new FileWatcher(file));
-            futures.add(future);
-            exec.execute(future);
+            callables.add(new FileWatcher(file));
         }
-        exec.shutdown();
-        return files;
+        return callables;
     }
 
+    public List<Future<Integer>> tryThreads(List<Callable<Integer>> callables){
+        try {
+            futures = exec.invokeAll(callables);
+            /**
+             * invoke - я не нашел, а вот invokeAll - крутая штука,
+             * получает коллекцию Collable, запускает с установленными условиями executor-а,
+             * и следит за выполнениями потоков,
+             * на много улучшило код по моему.
+             * Возвращает масив Future-ов
+             */
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return futures;
+    }
+
+    //// TODO: 26.05.2016 что бы при встрече не .txt файла не выбрасывало Nullpointer
+    //// TODO: 26.05.2016 ограничить время выполнение парсинга
     @Override
     public Integer call() throws Exception {
-
+        match = pattern.matcher(directory.toString());
         System.out.println(Thread.currentThread().getName());
         /**
          *Пытался понять какие потоки входят, и сколько их
          *и окозалось что пропускает он по два, все в порядке
          */
-
-        //в файл теперь заходить не будем, посчитаем все корректно
-        if(directory.isFile()) {
+        if(match.matches()) {
             String textLine;
             try(BufferedReader reader = new BufferedReader(new FileReader(directory))){
                 while((textLine = reader.readLine())!=null){
@@ -66,5 +85,10 @@ public class FileWatcher implements Callable<Integer> {
              */
         }
         return wordCounter;
+    }
+
+    @Override
+    public void close() throws Exception {
+        exec.shutdown();
     }
 }
