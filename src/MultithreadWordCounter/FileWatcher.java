@@ -46,7 +46,7 @@ public class FileWatcher implements Callable<Integer>, AutoCloseable {
             futures = exec.invokeAll(callables);
             /**
              * invoke - я не нашел, а вот invokeAll - крутая штука,
-             * получает коллекцию Collable, запускает с установленными условиями executor-а,
+             * получает коллекцию Callable, запускает с установленными условиями executor-а,
              * и следит за выполнениями потоков,
              * на много улучшило код по моему.
              * Возвращает масив Future-ов
