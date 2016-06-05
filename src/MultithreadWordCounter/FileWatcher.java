@@ -1,8 +1,6 @@
 package MultithreadWordCounter;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -14,29 +12,32 @@ import java.util.regex.Matcher;
  */
 public class FileWatcher implements Callable<Integer>, AutoCloseable {
 
-    private File directory;
-    private Integer wordCounter = 0;
-    private List<Future<Integer>> futures;
     private static String REGEXP_FOR_MATH = ".+.txt";
     private static Pattern pattern = Pattern.compile(REGEXP_FOR_MATH);
     private static Matcher match;
-    private static ExecutorService exec = Executors.newFixedThreadPool(2);
-    /**
-     * обробатываем по два потока
-     * т.к. два ядра у меня)
-     * да и проще отследить роботу
-     */
+    //еще одна класная штука в экзекюторе, запускает столько потоков, сколько ядер у машины
+    private static ExecutorService exec = Executors.newWorkStealingPool();
+    public static final String DIRECTORY_SEPARATOR = "\\";
+    private File directory;
+    private Integer wordCounter = 0;
+    private List<Future<Integer>> futures;
+
 
     public FileWatcher(File directory) {
         this.directory = directory;
     }
 
-    //вынес в отдельный метод что-бы не заходило в файлы..
     public List<Callable<Integer>> getFiles(){
         List<Callable<Integer>> callables = new ArrayList<>();
-        File[] files = directory.listFiles();
-        for (File file : files) {
-            callables.add(new FileWatcher(file));
+        String[] files = directory.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                match = pattern.matcher(name);
+                return match.matches();
+            }
+        });
+        for (String file : files) {
+            callables.add(new FileWatcher(new File(directory.getPath() + DIRECTORY_SEPARATOR + file)));
         }
         return callables;
     }
@@ -44,33 +45,21 @@ public class FileWatcher implements Callable<Integer>, AutoCloseable {
     public List<Future<Integer>> tryThreads(List<Callable<Integer>> callables){
         try {
             futures = exec.invokeAll(callables);
-            /**
-             * invoke - я не нашел, а вот invokeAll - крутая штука,
-             * получает коллекцию Callable, запускает с установленными условиями executor-а,
-             * и следит за выполнениями потоков,
-             * на много улучшило код по моему.
-             * Возвращает масив Future-ов
-             */
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         return futures;
     }
 
-    //// TODO: 26.05.2016 что бы при встрече не .txt файла не выбрасывало Nullpointer
-    //// TODO: 26.05.2016 ограничить время выполнение парсинга
     @Override
     public Integer call() throws Exception {
+        //Здесь глупы момент с матчером и ифом, я подумаю как его убрать
         match = pattern.matcher(directory.toString());
-        System.out.println(Thread.currentThread().getName());
-        /**
-         *Пытался понять какие потоки входят, и сколько их
-         *и окозалось что пропускает он по два, все в порядке
-         */
-        if(match.matches()) {
+        if (match.matches()) {
+            System.out.println(Thread.currentThread().getName());
             String textLine;
-            try(BufferedReader reader = new BufferedReader(new FileReader(directory))){
-                while((textLine = reader.readLine())!=null){
+            try (BufferedReader reader = new BufferedReader(new FileReader(directory))) {
+                while ((textLine = reader.readLine()) != null) {
                     wordCounter += textLine.split(" ").length;
                 }
             }
@@ -78,11 +67,7 @@ public class FileWatcher implements Callable<Integer>, AutoCloseable {
         }
 
         for (Future<Integer> future : futures) {
-            wordCounter += future.get();
-            /**
-             *get блокирует выполнения програмы до тех пор пока не
-             *получим отклик от Future
-             */
+            wordCounter += future.get(2, TimeUnit.SECONDS);
         }
         return wordCounter;
     }

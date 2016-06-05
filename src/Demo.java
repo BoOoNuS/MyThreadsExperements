@@ -1,4 +1,3 @@
-import MultithreadFileCrawler.Crawler;
 import MultithreadWordCounter.FileWatcher;
 import java.io.*;
 import java.util.concurrent.FutureTask;
@@ -15,17 +14,6 @@ public class Demo {
             thread.start();
             System.out.println("Count of word - " + future.get());
         } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-        }
-
-        System.out.println("//////////////////////////////////////next");
-
-        try (Crawler crawler = new Crawler(new File("Files1"), "werg")) {
-            FutureTask future = new FutureTask(crawler);
-            Thread thread = new Thread(future);
-            thread.start();
-            System.out.println("Count of concurrence - " + future.get());
-        } catch (Exception ex){
             System.out.println(ex.getMessage());
         }
     }
