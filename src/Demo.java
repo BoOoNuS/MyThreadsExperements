@@ -1,4 +1,4 @@
-import MultithreadWordCounter.FileWatcher;
+import MultithreadWordCounter.WordCounter;
 import java.io.*;
 
 /**
@@ -6,8 +6,13 @@ import java.io.*;
  */
 public class Demo {
     public static void main(String[] args) {
-        try (FileWatcher fileWatcher = new FileWatcher(new File("Files"))) {
-            System.out.println("Count of word - " + fileWatcher.startThreads());
+        /**
+         * Если указать не существующий файл,
+         * вылетит с метода startThreads(),
+         * и здесь выведет null
+         */
+        try (WordCounter fileWatcher = new WordCounter(new File("Files"))) {
+            System.out.println("Count of word - " + fileWatcher.startThreadsWithDirectory());
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
         }
